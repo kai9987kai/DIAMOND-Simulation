@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Advanced DIAMOND Simulation with Enhancements</title>
+    <title>Advanced DIAMOND Simulation with Dynamic Obstacles</title>
     <style>
         /* Styles for the simulation */
         body {
@@ -64,7 +64,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Advanced DIAMOND Simulation with Enhancements</h1>
+        <h1>Advanced DIAMOND Simulation with Dynamic Obstacles</h1>
         <div class="canvas-container">
             <div>
                 <h2>World State</h2>
@@ -137,6 +137,8 @@
                 this.state = this.createInitialState();
                 this.obstacles = this.createObstacles();
                 this.terrain = this.createTerrain();
+                this.traps = this.createTraps();
+                this.movingObstacles = this.createMovingObstacles();
             }
 
             createInitialState() {
@@ -154,7 +156,7 @@
             }
 
             createObstacles() {
-                // Create random obstacles in the environment
+                // Create static obstacles in the environment
                 let obstacles = Array.from({ length: this.gridSize }, () =>
                     new Array(this.gridSize).fill(false)
                 );
@@ -164,6 +166,48 @@
                     obstacles[y][x] = true;
                 }
                 return obstacles;
+            }
+
+            createMovingObstacles() {
+                // Create moving obstacles
+                let movingObstacles = [];
+                for (let i = 0; i < 10; i++) {
+                    const x = Math.floor(Math.random() * this.gridSize);
+                    const y = Math.floor(Math.random() * this.gridSize);
+                    movingObstacles.push({ x, y, dx: Math.random() < 0.5 ? 1 : -1, dy: Math.random() < 0.5 ? 1 : -1 });
+                }
+                return movingObstacles;
+            }
+
+            updateMovingObstacles() {
+                // Move obstacles and handle boundary conditions
+                this.movingObstacles.forEach(obstacle => {
+                    const oldX = obstacle.x;
+                    const oldY = obstacle.y;
+                    obstacle.x += obstacle.dx;
+                    obstacle.y += obstacle.dy;
+
+                    if (obstacle.x < 0 || obstacle.x >= this.gridSize) {
+                        obstacle.dx *= -1;
+                        obstacle.x += obstacle.dx * 2;
+                    }
+                    if (obstacle.y < 0 || obstacle.y >= this.gridSize) {
+                        obstacle.dy *= -1;
+                        obstacle.y += obstacle.dy * 2;
+                    }
+
+                    // Update obstacles grid
+                    this.obstacles[oldY][oldX] = false;
+                    if (!this.obstacles[obstacle.y][obstacle.x]) {
+                        this.obstacles[obstacle.y][obstacle.x] = true;
+                    } else {
+                        // If collision with static obstacle, reverse direction
+                        obstacle.dx *= -1;
+                        obstacle.dy *= -1;
+                        obstacle.x = oldX;
+                        obstacle.y = oldY;
+                    }
+                });
             }
 
             createTerrain() {
@@ -182,6 +226,28 @@
                     terrain[y][x] = 'fast'; // Fast terrain
                 }
                 return terrain;
+            }
+
+            createTraps() {
+                // Create trap cells that reduce agent's reward
+                let traps = Array.from({ length: this.gridSize }, () =>
+                    new Array(this.gridSize).fill(false)
+                );
+                for (let i = 0; i < 50; i++) {
+                    const x = Math.floor(Math.random() * this.gridSize);
+                    const y = Math.floor(Math.random() * this.gridSize);
+                    traps[y][x] = true;
+                }
+                return traps;
+            }
+
+            updateDynamicObstacles() {
+                // Randomly add or remove obstacles
+                for (let i = 0; i < 5; i++) {
+                    const x = Math.floor(Math.random() * this.gridSize);
+                    const y = Math.floor(Math.random() * this.gridSize);
+                    this.obstacles[y][x] = !this.obstacles[y][x];
+                }
             }
 
             diffuse(steps) {
@@ -356,7 +422,7 @@
                     ny >= 0 && ny < GRID_SIZE &&
                     !this.env.obstacles[ny][nx]
                 ) {
-                    const reward = this.env.state[ny][nx];
+                    const reward = this.env.state[ny][nx] - (this.env.traps[ny][nx] ? 5 : 0);
                     const nextStateKey = `${nx},${ny}`;
 
                     // Update Q-table
@@ -398,14 +464,15 @@
                 const x = Math.floor(this.position[0] / CELL_SIZE);
                 const y = Math.floor(this.position[1] / CELL_SIZE);
 
-                const observedReward = this.env.state[y][x];
+                const observedReward = this.env.state[y][x] - (this.env.traps[y][x] ? 5 : 0);
                 this.predictionState[y][x] += learningRate * (observedReward - this.predictionState[y][x]);
             }
 
             getReward() {
                 const x = Math.floor(this.position[0] / CELL_SIZE);
                 const y = Math.floor(this.position[1] / CELL_SIZE);
-                return this.env.state[y][x];
+                const reward = this.env.state[y][x] - (this.env.traps[y][x] ? 5 : 0);
+                return reward;
             }
         }
 
@@ -456,6 +523,8 @@
                 const learningRate = parseFloat(learningRateInput.value);
 
                 this.env.diffuse(diffusionSteps);
+                this.env.updateMovingObstacles();
+                this.env.updateDynamicObstacles();
 
                 this.agents.forEach(agent => {
                     agent.move();
@@ -524,22 +593,24 @@
             }
 
             draw() {
-                this.drawState(worldCtx, this.env.state, this.env.obstacles, this.env.terrain);
+                this.drawState(worldCtx, this.env.state, this.env.obstacles, this.env.terrain, this.env.traps);
                 this.agents.forEach(agent => {
                     this.drawAgent(worldCtx, agent);
                 });
-                this.drawState(predictionCtx, this.agents[0].predictionState, this.env.obstacles, this.env.terrain);
+                this.drawState(predictionCtx, this.agents[0].predictionState, this.env.obstacles, this.env.terrain, this.env.traps);
                 this.agents.forEach(agent => {
                     this.drawAgent(predictionCtx, agent);
                 });
             }
 
-            drawState(ctx, state, obstacles, terrain) {
+            drawState(ctx, state, obstacles, terrain, traps) {
                 ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
                 for (let y = 0; y < GRID_SIZE; y++) {
                     for (let x = 0; x < GRID_SIZE; x++) {
                         if (obstacles[y][x]) {
                             ctx.fillStyle = '#444'; // Obstacles
+                        } else if (traps[y][x]) {
+                            ctx.fillStyle = '#8B0000'; // Dark Red for traps
                         } else {
                             const value = state[y][x];
                             const intensity = Math.min(255, Math.floor(value * 25));
