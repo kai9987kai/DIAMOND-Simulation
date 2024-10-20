@@ -52,14 +52,8 @@ Experimenting with AI and ML Algorithms: Modify parameters and strategies to see
 Getting Started:
 Clone the Repository:
 
-bash
-Copy code
-git clone https://github.com/yourusername/advanced-diamond-simulation.git
-Open the Simulation:
 
-Navigate to the cloned directory.
-Open the enhanced_simulation.html file in a modern web browser (e.g., Chrome, Firefox).
-Interact with the Simulation:
+
 
 Use the on-screen controls to adjust parameters.
 Click Run to start the simulation or Step to advance one step at a time.
