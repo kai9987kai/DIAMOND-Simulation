@@ -1,431 +1,852 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Enhanced DIAMOND Simulation with Advanced Features</title>
+    <title>DIAMOND Simulation with Q-Learning and Neural Network Agents</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #fafafa; margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; }
-        h1 { color: #222; text-align: center; }
-        .canvas-container { display: flex; justify-content: center; }
-        canvas { border: 1px solid #999; background-color: #fff; margin: 10px; }
-        .info { text-align: center; }
-        .info p { margin: 5px 0; }
-        .controls { text-align: center; margin-top: 20px; }
-        .controls input { margin: 0 5px; }
-        #chart-container { width: 600px; margin: 20px auto; }
+        /* Styles for the simulation */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fafafa;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1800px;
+            margin: auto;
+        }
+        h1 {
+            color: #222;
+            text-align: center;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        canvas {
+            border: 1px solid #999;
+            background-color: #fff;
+            margin: 10px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .controls label {
+            margin-right: 5px;
+        }
+        .info-panel {
+            margin-top: 20px;
+            background-color: #eaeaea;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .agent-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .agent-info div {
+            flex: 1;
+            min-width: 150px;
+        }
+        .slider-label {
+            display: flex;
+            align-items: center;
+        }
+        .slider-label input {
+            margin-left: 5px;
+        }
+        .data-visualization {
+            margin-top: 20px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            margin-bottom: 30px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>DIAMOND Simulation with Advanced Features</h1>
+        <h1>Hybrid DIAMOND Simulation with Q-Learning & Neural Networks</h1>
         <div class="canvas-container">
-            <canvas id="world-canvas" width="600" height="600"></canvas>
-        </div>
-        <div class="info">
-            <p>Total Steps: <span id="total-steps">0</span></p>
-            <p>Population Size: <span id="population-size">10</span></p>
-            <p>Average Energy Level: <span id="average-energy">0</span></p>
-            <p>Exploration Rate (epsilon): <span id="exploration-rate">0.2</span></p>
-            <p>Learning Rate (alpha): <span id="learning-rate">0.1</span></p>
-            <p>Discount Factor (gamma): <span id="gamma">0.9</span></p>
+            <div>
+                <h2>World State</h2>
+                <canvas id="world-canvas" width="600" height="600"></canvas>
+            </div>
+            <div>
+                <h2>Agent's Prediction</h2>
+                <canvas id="prediction-canvas" width="600" height="600"></canvas>
+            </div>
         </div>
         <div class="controls">
-            <label>Exploration Rate (epsilon): <input type="range" id="epsilon-slider" min="0" max="1" step="0.01" value="0.2"></label>
-            <label>Learning Rate (alpha): <input type="range" id="alpha-slider" min="0" max="1" step="0.01" value="0.1"></label>
-            <label>Discount Factor (gamma): <input type="range" id="gamma-slider" min="0" max="1" step="0.01" value="0.9"></label>
+            <button id="reset-button">Reset</button>
+            <button id="step-button">Step</button>
+            <button id="run-button">Run</button>
+            <button id="save-button">Save</button> <!-- Save button -->
+            <button id="load-button">Load</button> <!-- Load button -->
+            <label for="diffusion-steps">Diffusion Steps:</label>
+            <input type="number" id="diffusion-steps" value="1" min="1" max="3">
+            <label for="learning-rate">Learning Rate (α):</label>
+            <input type="number" id="learning-rate" value="0.1" min="0.01" max="1" step="0.01">
+            <label for="discount-factor">Discount Factor (γ):</label>
+            <input type="number" id="discount-factor" value="0.9" min="0.1" max="1" step="0.1">
+            <label for="epsilon">Exploration Rate (ε):</label>
+            <input type="number" id="epsilon" value="0.1" min="0" max="1" step="0.05">
+            <div class="slider-label">
+                <label for="agent-speed">Agent Speed:</label>
+                <input type="range" id="agent-speed" value="5" min="1" max="10">
+            </div>
+            <label for="num-agents">Number of Agents:</label>
+            <input type="number" id="num-agents" value="12" min="1" max="20">
         </div>
-        <div id="chart-container">
-            <canvas id="energy-chart"></canvas>
+        <div class="info-panel">
+            <div class="agent-info" id="agent-info">
+                <!-- Agent information will be populated here -->
+            </div>
+            <p>Total Steps: <span id="total-steps">0</span></p>
+            <p>Average Prediction Accuracy: <span id="prediction-accuracy">0%</span></p>
+        </div>
+        <div class="data-visualization">
+            <h2>Agent Performance Metrics</h2>
+            <canvas id="reward-chart" class="chart-container"></canvas>
+            <canvas id="energy-chart" class="chart-container"></canvas>
         </div>
     </div>
-    
-    <!-- Include Chart.js for data visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-    <script>
-        const GRID_SIZE = 60;
-        const CELL_SIZE = 10;
-        const MAX_ENERGY = 100;
-        const POPULATION_SIZE = 10;
-        const RESOURCE_TYPES = ['food', 'water'];
-        const THREAT_TYPES = ['predator', 'hazard'];
-        const ACTIONS = ['up', 'down', 'left', 'right'];
-        
-        const worldCanvas = document.getElementById('world-canvas');
-        const worldCtx = worldCanvas.getContext('2d');
-        const totalStepsCounter = document.getElementById('total-steps');
-        const averageEnergyCounter = document.getElementById('average-energy');
-        const populationSizeCounter = document.getElementById('population-size');
-        const explorationRateCounter = document.getElementById('exploration-rate');
-        const learningRateCounter = document.getElementById('learning-rate');
-        const gammaCounter = document.getElementById('gamma');
-        const epsilonSlider = document.getElementById('epsilon-slider');
-        const alphaSlider = document.getElementById('alpha-slider');
-        const gammaSlider = document.getElementById('gamma-slider');
 
-        // Chart for data visualization
+    <!-- Include TensorFlow.js and Chart.js libraries before the simulation script -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- Simulation script -->
+    <script>
+        // Configuration Constants
+        let GRID_SIZE = 60;
+        let CELL_SIZE = 10;
+        let CANVAS_SIZE = GRID_SIZE * CELL_SIZE;
+        let MAX_ENERGY = 200;
+        let POPULATION_SIZE = 12; // Total number of agents
+        let SELECTION_COUNT = 6; // Number of top agents to select for training
+        const MUTATION_RATE = 0.05; // 5% mutation rate
+        const EPSILON_DECAY = 0.995; // Decay rate for exploration
+        const MIN_EPSILON = 0.01; // Minimum exploration rate
+        const ALPHA_DECAY = 0.99; // Decay rate for learning rate
+        const MIN_ALPHA = 0.01; // Minimum learning rate
+
+        // DOM elements
+        const worldCanvas = document.getElementById('world-canvas');
+        const predictionCanvas = document.getElementById('prediction-canvas');
+        const worldCtx = worldCanvas.getContext('2d');
+        const predictionCtx = predictionCanvas.getContext('2d');
+
+        const resetButton = document.getElementById('reset-button');
+        const stepButton = document.getElementById('step-button');
+        const runButton = document.getElementById('run-button');
+        const saveButton = document.getElementById('save-button'); // Save button
+        const loadButton = document.getElementById('load-button'); // Load button
+        const diffusionStepsInput = document.getElementById('diffusion-steps');
+        const learningRateInput = document.getElementById('learning-rate');
+        const discountFactorInput = document.getElementById('discount-factor');
+        const epsilonInput = document.getElementById('epsilon');
+        const agentSpeedInput = document.getElementById('agent-speed');
+        const numAgentsInput = document.getElementById('num-agents');
+
+        const agentInfoContainer = document.getElementById('agent-info');
+        const totalStepsDisplay = document.getElementById('total-steps');
+        const predictionAccuracyDisplay = document.getElementById('prediction-accuracy');
+
+        const rewardChartCtx = document.getElementById('reward-chart').getContext('2d');
         const energyChartCtx = document.getElementById('energy-chart').getContext('2d');
-        const energyChart = new Chart(energyChartCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Average Energy Level',
-                    data: [],
-                    borderColor: 'blue',
-                    fill: false,
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: { title: { display: true, text: 'Time Steps' } },
-                    y: { title: { display: true, text: 'Energy Level' }, min: 0, max: MAX_ENERGY }
+
+        // Hybrid Agent class (combining Q-Learning and Neural Network)
+        class HybridAgent {
+            constructor(environment, id, qTable = null, modelWeights = null) {
+                this.id = id;
+                this.env = environment;
+                this.position = [CANVAS_SIZE / 2, CANVAS_SIZE / 2];
+                this.qTable = qTable ? JSON.parse(JSON.stringify(qTable)) : this.initializeQTable();
+                this.model = null;  // Neural network for higher-level decisions
+                this.initializeNeuralNetwork(modelWeights);
+                this.alpha = parseFloat(learningRateInput.value);  // Learning rate
+                this.gamma = parseFloat(discountFactorInput.value);  // Discount factor
+                this.epsilon = parseFloat(epsilonInput.value);  // Exploration rate
+                this.totalReward = 0;
+                this.totalSteps = 0;
+                this.energy = MAX_ENERGY;
+                this.path = [];
+            }
+
+            // Initialize Q-Table
+            initializeQTable() {
+                let qTable = {};
+                for (let y = 0; y < this.env.gridSize; y++) {
+                    for (let x = 0; x < this.env.gridSize; x++) {
+                        const state = `${x},${y}`;
+                        qTable[state] = { 'up': 0, 'down': 0, 'left': 0, 'right': 0 };
+                    }
+                }
+                return qTable;
+            }
+
+            // Initialize Neural Network with optional weights
+            initializeNeuralNetwork(modelWeights = null) {
+                try {
+                    this.model = tf.sequential();
+                    this.model.add(tf.layers.dense({ units: 64, inputShape: [2], activation: 'relu' }));
+                    this.model.add(tf.layers.dense({ units: 4, activation: 'linear' }));
+                    this.model.compile({ optimizer: tf.train.adam(), loss: 'meanSquaredError' });
+
+                    if (modelWeights) {
+                        this.model.setWeights(modelWeights);
+                    }
+                } catch (error) {
+                    console.error('Error initializing TensorFlow model:', error);
+                    alert('TensorFlow failed to load. Neural network functionality will be disabled.');
+                    this.model = null;  // Fallback if TensorFlow is not available
                 }
             }
-        });
 
+            // Clone the agent's Q-Table and model weights
+            clone() {
+                const clonedQTable = JSON.parse(JSON.stringify(this.qTable));
+                const clonedWeights = this.model ? this.model.getWeights().map(w => w.clone()) : null;
+                return new HybridAgent(this.env, this.id, clonedQTable, clonedWeights);
+            }
+
+            // Crossover between two agents
+            static crossover(parentA, parentB, id) {
+                // Combine Q-Tables
+                const childQTable = {};
+                for (let state in parentA.qTable) {
+                    childQTable[state] = {};
+                    for (let action in parentA.qTable[state]) {
+                        childQTable[state][action] = Math.random() < 0.5 ? parentA.qTable[state][action] : parentB.qTable[state][action];
+                    }
+                }
+
+                // Combine Neural Network Weights
+                let childWeights = null;
+                if (parentA.model && parentB.model) {
+                    childWeights = parentA.model.getWeights().map((weightA, idx) => {
+                        const weightB = parentB.model.getWeights()[idx];
+                        // Create new tensor by randomly selecting weights from parentA or parentB
+                        const shape = weightA.shape;
+                        const values = [];
+                        for (let i = 0; i < weightA.size; i++) {
+                            values.push(Math.random() < 0.5 ? weightA.dataSync()[i] : weightB.dataSync()[i]);
+                        }
+                        return tf.tensor(values, shape);
+                    });
+                }
+
+                const child = new HybridAgent(parentA.env, id, childQTable, childWeights);
+                child.mutate(); // Apply mutation
+                return child;
+            }
+
+            // Mutation method
+            mutate() {
+                // Mutate Q-Table
+                for (let state in this.qTable) {
+                    for (let action in this.qTable[state]) {
+                        if (Math.random() < MUTATION_RATE) {
+                            // Apply a small random change
+                            this.qTable[state][action] += (Math.random() - 0.5) * 0.1;
+                        }
+                    }
+                }
+
+                // Mutate Neural Network Weights
+                if (this.model) {
+                    const weights = this.model.getWeights();
+                    const mutatedWeights = weights.map(weight => {
+                        const tensorValues = weight.dataSync().slice();
+                        for (let i = 0; i < tensorValues.length; i++) {
+                            if (Math.random() < MUTATION_RATE) {
+                                // Apply a small random change
+                                tensorValues[i] += (Math.random() - 0.5) * 0.1;
+                            }
+                        }
+                        return tf.tensor(tensorValues, weight.shape);
+                    });
+                    this.model.setWeights(mutatedWeights);
+                }
+            }
+
+            // Predict next action using the neural network
+            async predictAction(state) {
+                if (!this.model) {
+                    return [0, 0, 0, 0];  // Fallback if model is not available
+                }
+                try {
+                    const input = tf.tensor2d([state], [1, 2]);
+                    const prediction = await this.model.predict(input).data();
+                    return prediction;
+                } catch (error) {
+                    console.error('Prediction error:', error);
+                    return [0, 0, 0, 0];  // Fallback if prediction fails
+                }
+            }
+
+            // Combine Q-learning and Neural Network for action choice
+            async chooseAction() {
+                const currentGridX = Math.floor(this.position[0] / CELL_SIZE);
+                const currentGridY = Math.floor(this.position[1] / CELL_SIZE);
+                const state = [currentGridX / GRID_SIZE, currentGridY / GRID_SIZE];
+
+                // Use Q-learning for short-term decisions
+                const qAction = this.qLearningChooseAction(currentGridX, currentGridY);
+
+                // Use neural network for higher-level strategies
+                const nnPredictions = await this.predictAction(state);
+                const actions = ['up', 'down', 'left', 'right'];
+                const nnAction = actions[nnPredictions.indexOf(Math.max(...nnPredictions))];
+
+                // Hybrid approach: use NN when energy is above 50%, else Q-learning
+                return this.energy < MAX_ENERGY * 0.5 ? qAction : nnAction;
+            }
+
+            // Q-learning decision
+            qLearningChooseAction(x, y) {
+                const state = `${x},${y}`;
+                if (Math.random() < this.epsilon) {
+                    const actions = Object.keys(this.qTable[state]);
+                    return actions[Math.floor(Math.random() * actions.length)];
+                } else {
+                    const actions = this.qTable[state];
+                    return Object.keys(actions).reduce((a, b) => actions[a] > actions[b] ? a : b);
+                }
+            }
+
+            // Perform agent movement and learning (Q-learning & NN combined)
+            async move() {
+                const currentGridX = Math.floor(this.position[0] / CELL_SIZE);
+                const currentGridY = Math.floor(this.position[1] / CELL_SIZE);
+                const currentState = [currentGridX / GRID_SIZE, currentGridY / GRID_SIZE];
+
+                const action = await this.chooseAction();
+                let [dx, dy] = [0, 0];
+
+                switch (action) {
+                    case 'up': dy = -1; break;
+                    case 'down': dy = 1; break;
+                    case 'left': dx = -1; break;
+                    case 'right': dx = 1; break;
+                }
+
+                let newX = currentGridX + dx;
+                let newY = currentGridY + dy;
+
+                // Check for boundaries
+                newX = Math.max(0, Math.min(this.env.gridSize - 1, newX));
+                newY = Math.max(0, Math.min(this.env.gridSize - 1, newY));
+
+                // Check for obstacles
+                if (this.env.state[newY][newX] === null) {
+                    // Penalize for hitting an obstacle
+                    const obstaclePenalty = -5;
+                    this.totalReward += obstaclePenalty;
+                    this.energy -= 1; // Higher energy cost for hitting obstacles
+                    this.updateQTable(currentState, action, obstaclePenalty, currentState); // Stay in the same state
+                    this.updateLearningParameters();
+                    return; // Skip movement
+                }
+
+                const reward = this.env.state[newY][newX];
+                const newState = [newX / GRID_SIZE, newY / GRID_SIZE];
+
+                this.updateQTable(currentState, action, reward, newState);
+
+                this.trainNeuralNetwork(currentState, action, reward, newState);
+
+                // Smooth movement by animating to the new position
+                const targetX = newX * CELL_SIZE + CELL_SIZE / 2;
+                const targetY = newY * CELL_SIZE + CELL_SIZE / 2;
+                await this.animateMovement(targetX, targetY);
+
+                this.path.push([...this.position]);
+                if (this.path.length > 100) this.path.shift();
+
+                this.totalReward += reward;
+                this.energy -= 0.5; // Energy consumption
+                this.totalSteps++;
+
+                // Update learning parameters
+                this.updateLearningParameters();
+            }
+
+            // Animate movement for smooth visuals
+            animateMovement(targetX, targetY) {
+                return new Promise(resolve => {
+                    const duration = 100; // Duration of the animation in milliseconds
+                    const frames = duration / (1000 / 60); // Assuming 60 FPS
+                    const startX = this.position[0];
+                    const startY = this.position[1];
+                    const deltaX = (targetX - startX) / frames;
+                    const deltaY = (targetY - startY) / frames;
+                    let currentFrame = 0;
+
+                    const animate = () => {
+                        if (currentFrame < frames) {
+                            this.position[0] += deltaX;
+                            this.position[1] += deltaY;
+                            currentFrame++;
+                            requestAnimationFrame(animate);
+                        } else {
+                            this.position[0] = targetX;
+                            this.position[1] = targetY;
+                            resolve();
+                        }
+                    };
+
+                    animate();
+                });
+            }
+
+            // Q-learning update
+            updateQTable(currentState, action, reward, nextState) {
+                const currentQ = this.qTable[`${Math.floor(currentState[0] * GRID_SIZE)},${Math.floor(currentState[1] * GRID_SIZE)}`][action];
+                const nextMaxQ = Math.max(...Object.values(this.qTable[`${Math.floor(nextState[0] * GRID_SIZE)},${Math.floor(nextState[1] * GRID_SIZE)}`]));
+                this.qTable[`${Math.floor(currentState[0] * GRID_SIZE)},${Math.floor(currentState[1] * GRID_SIZE)}`][action] +=
+                    this.alpha * (reward + this.gamma * nextMaxQ - currentQ);
+            }
+
+            // Train neural network using backpropagation
+            async trainNeuralNetwork(currentState, action, reward, nextState) {
+                if (!this.model) return;  // Skip training if model isn't available
+                try {
+                    const target = await this.predictAction(currentState);
+                    const actions = ['up', 'down', 'left', 'right'];
+                    target[actions.indexOf(action)] = reward;
+
+                    const input = tf.tensor2d([currentState], [1, 2]);
+                    const targetTensor = tf.tensor2d([target], [1, 4]);
+
+                    await this.model.fit(input, targetTensor);
+                } catch (error) {
+                    console.error('Training error:', error);
+                }
+            }
+
+            // Update learning parameters with decay
+            updateLearningParameters() {
+                // Decay epsilon
+                this.epsilon = Math.max(this.epsilon * EPSILON_DECAY, MIN_EPSILON);
+                
+                // Decay alpha
+                this.alpha = Math.max(this.alpha * ALPHA_DECAY, MIN_ALPHA);
+            }
+        }
+
+        // Environment Class
         class Environment {
             constructor(gridSize) {
                 this.gridSize = gridSize;
                 this.state = this.createState(gridSize);
-                this.createResources(gridSize);
-                this.createThreats(gridSize);
+                this.obstacles = this.createObstacles(gridSize);
             }
 
+            // Create environment state with random rewards
             createState(gridSize) {
                 let state = [];
                 for (let y = 0; y < gridSize; y++) {
                     let row = [];
                     for (let x = 0; x < gridSize; x++) {
-                        row.push(null);
+                        row.push(Math.random() > 0.8 ? 10 : -1); // Random rewards or penalties
                     }
                     state.push(row);
                 }
                 return state;
             }
 
-            createResources(gridSize) {
-                const resourceCount = Math.floor(gridSize * gridSize * 0.05);
-                for (let i = 0; i < resourceCount; i++) {
-                    this.addResource();
+            // Create obstacles in the environment
+            createObstacles(gridSize) {
+                let obstacles = [];
+                const obstacleCount = Math.floor(gridSize * gridSize * 0.1); // 10% of the grid
+                for (let i = 0; i < obstacleCount; i++) {
+                    const x = Math.floor(Math.random() * gridSize);
+                    const y = Math.floor(Math.random() * gridSize);
+                    // Ensure the obstacle is not at the starting position
+                    if (x !== Math.floor(gridSize / 2) && y !== Math.floor(gridSize / 2)) {
+                        obstacles.push([x, y]);
+                        this.state[y][x] = null; // null represents an obstacle
+                    }
                 }
+                return obstacles;
             }
 
-            addResource() {
-                let type = RESOURCE_TYPES[Math.floor(Math.random() * RESOURCE_TYPES.length)];
-                let x = Math.floor(Math.random() * this.gridSize);
-                let y = Math.floor(Math.random() * this.gridSize);
-                if (!this.state[y][x]) {
-                    this.state[y][x] = { type: 'resource', resourceType: type };
-                }
-            }
-
-            createThreats(gridSize) {
-                const threatCount = Math.floor(gridSize * gridSize * 0.03);
-                for (let i = 0; i < threatCount; i++) {
-                    this.addThreat();
-                }
-            }
-
-            addThreat() {
-                let type = THREAT_TYPES[Math.floor(Math.random() * THREAT_TYPES.length)];
-                let x = Math.floor(Math.random() * this.gridSize);
-                let y = Math.floor(Math.random() * this.gridSize);
-                if (!this.state[y][x]) {
-                    this.state[y][x] = { type: 'threat', threatType: type };
-                }
-            }
-
-            regenerateResourcesAndThreats() {
-                // Regenerate resources
-                if (Math.random() < 0.1) { // 10% chance to add a new resource each step
-                    this.addResource();
-                }
-                // Regenerate threats
-                if (Math.random() < 0.05) { // 5% chance to add a new threat each step
-                    this.addThreat();
-                }
+            // Reset the environment state
+            reset() {
+                this.state = this.createState(this.gridSize);
+                this.obstacles = this.createObstacles(this.gridSize);
             }
         }
 
-        class Agent {
-            constructor(env, id, agents) {
-                this.env = env;
-                this.id = id;
-                this.position = [Math.floor(Math.random() * GRID_SIZE), Math.floor(Math.random() * GRID_SIZE)];
-                this.energy = MAX_ENERGY;
-                this.alive = true;
-                this.qTable = {};
-                this.epsilon = parseFloat(epsilonSlider.value); // Exploration factor
-                this.alpha = parseFloat(alphaSlider.value);  // Learning rate
-                this.gamma = parseFloat(gammaSlider.value);  // Discount factor
-                this.communicationRange = 5; // Range within which agents can communicate
-                this.agents = agents; // Reference to other agents
-            }
-
-            getState() {
-                const [x, y] = this.position;
-                return `${x},${y}`;
-            }
-
-            move() {
-                if (!this.alive) return;
-
-                // Update agent parameters from sliders
-                this.epsilon = parseFloat(epsilonSlider.value);
-                this.alpha = parseFloat(alphaSlider.value);
-                this.gamma = parseFloat(gammaSlider.value);
-
-                const currentState = this.getState();
-                const action = this.chooseAction(currentState);
-                const [dx, dy] = this.getActionDelta(action);
-
-                this.updatePosition(dx, dy);
-                const reward = this.interactWithEnvironment();
-                this.energy -= 1; // Decrease energy on each move
-
-                const newState = this.getState();
-                this.learn(currentState, action, reward, newState);
-
-                if (this.energy >= MAX_ENERGY * 0.9) {
-                    this.reproduce();
-                }
-
-                if (this.energy <= 0) {
-                    this.alive = false;
-                }
-            }
-
-            getActionDelta(action) {
-                switch (action) {
-                    case 'up': return [0, -1];
-                    case 'down': return [0, 1];
-                    case 'left': return [-1, 0];
-                    case 'right': return [1, 0];
-                    default: return [0, 0];
-                }
-            }
-
-            updatePosition(dx, dy) {
-                const newX = Math.min(Math.max(this.position[0] + dx, 0), GRID_SIZE - 1);
-                const newY = Math.min(Math.max(this.position[1] + dy, 0), GRID_SIZE - 1);
-                this.position = [newX, newY];
-            }
-
-            interactWithEnvironment() {
-                const [x, y] = this.position;
-                const cell = this.env.state[y][x];
-                let reward = -0.1; // Small penalty to encourage efficient movement
-
-                if (cell && cell.type === 'resource') {
-                    this.energy = Math.min(this.energy + 20, MAX_ENERGY); // Gain energy
-                    reward = 10; // Positive reward for collecting resource
-                    this.env.state[y][x] = null; // Remove resource after collection
-                } else if (cell && cell.type === 'threat') {
-                    this.energy -= 30; // Lose energy
-                    reward = -20; // Negative reward for encountering threat
-                }
-
-                // Communicate with nearby agents
-                this.communicate();
-
-                return reward;
-            }
-
-            communicate() {
-                for (let agent of this.agents) {
-                    if (agent.id !== this.id && agent.alive) {
-                        const distance = Math.hypot(this.position[0] - agent.position[0], this.position[1] - agent.position[1]);
-                        if (distance <= this.communicationRange) {
-                            // Share Q-values
-                            this.mergeQTables(agent);
-                        }
-                    }
-                }
-            }
-
-            mergeQTables(otherAgent) {
-                for (let state in otherAgent.qTable) {
-                    if (!this.qTable[state]) {
-                        this.qTable[state] = { ...otherAgent.qTable[state] };
-                    } else {
-                        for (let action in otherAgent.qTable[state]) {
-                            if (!this.qTable[state][action]) {
-                                this.qTable[state][action] = otherAgent.qTable[state][action];
-                            } else {
-                                // Average the Q-values
-                                this.qTable[state][action] = (this.qTable[state][action] + otherAgent.qTable[state][action]) / 2;
-                            }
-                        }
-                    }
-                }
-            }
-
-            chooseAction(state) {
-                if (Math.random() < this.epsilon || !this.qTable[state]) {
-                    // Explore random action
-                    return ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-                } else {
-                    // Exploit learned action
-                    return this.getBestAction(state);
-                }
-            }
-
-            getBestAction(state) {
-                if (!this.qTable[state]) return ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-                const qValues = this.qTable[state];
-                let maxQ = -Infinity;
-                let bestActions = [];
-                for (let action of ACTIONS) {
-                    const qValue = qValues[action] || 0;
-                    if (qValue > maxQ) {
-                        maxQ = qValue;
-                        bestActions = [action];
-                    } else if (qValue === maxQ) {
-                        bestActions.push(action);
-                    }
-                }
-                // Randomly select among best actions to break ties
-                return bestActions[Math.floor(Math.random() * bestActions.length)];
-            }
-
-            learn(state, action, reward, nextState) {
-                if (!this.qTable[state]) {
-                    this.qTable[state] = {};
-                }
-                if (!this.qTable[nextState]) {
-                    this.qTable[nextState] = {};
-                }
-
-                const qPredict = this.qTable[state][action] || 0;
-                const qNextMax = Math.max(...ACTIONS.map(a => this.qTable[nextState][a] || 0));
-                const qTarget = reward + this.gamma * qNextMax;
-
-                // Update Q-value
-                this.qTable[state][action] = qPredict + this.alpha * (qTarget - qPredict);
-            }
-
-            reproduce() {
-                // Create a new agent with inherited properties
-                const newAgent = new Agent(this.env, this.agents.length + 1, this.agents);
-                newAgent.position = [...this.position];
-                newAgent.energy = MAX_ENERGY / 2;
-                this.energy = MAX_ENERGY / 2;
-                // Slightly mutate learning parameters
-                newAgent.epsilon = Math.min(Math.max(this.epsilon + (Math.random() - 0.5) * 0.02, 0), 1);
-                newAgent.alpha = Math.min(Math.max(this.alpha + (Math.random() - 0.5) * 0.02, 0), 1);
-                newAgent.gamma = Math.min(Math.max(this.gamma + (Math.random() - 0.5) * 0.02, 0), 1);
-                this.agents.push(newAgent);
-            }
-        }
-
+        // Simulation Class
         class Simulation {
             constructor() {
                 this.env = new Environment(GRID_SIZE);
-                this.agents = this.initializeAgents();
+                this.agents = [];
+                this.isRunning = false;
                 this.totalSteps = 0;
-                this.energyHistory = [];
-                this.run();
+                this.dataLog = [];
+                this.rewardChart = null;
+                this.energyChart = null;
+                this.initializeAgents();
+                this.initializeCharts();
+                this.updateDisplay();
+                this.draw();
+                this.addPersistenceControls();
+
+                this.lastFrameTime = performance.now();
+                this.targetFPS = 30;
+                this.frameInterval = 1000 / this.targetFPS;
+
+                this.loadSimulation(); // Attempt to load saved simulation on start
             }
 
             initializeAgents() {
-                const agents = [];
+                this.agents = [];
                 for (let i = 0; i < POPULATION_SIZE; i++) {
-                    agents.push(new Agent(this.env, i + 1, agents));
+                    this.agents.push(new HybridAgent(this.env, i + 1));
                 }
-                return agents;
+                this.updateAgentInfoDisplay();
             }
 
-            run() {
-                setInterval(() => {
-                    this.totalSteps++;
-                    totalStepsCounter.textContent = this.totalSteps;
-                    populationSizeCounter.textContent = this.agents.filter(agent => agent.alive).length;
-                    explorationRateCounter.textContent = this.agents[0].epsilon.toFixed(2);
-                    learningRateCounter.textContent = this.agents[0].alpha.toFixed(2);
-                    gammaCounter.textContent = this.agents[0].gamma.toFixed(2);
+            initializeCharts() {
+                // Initialize reward and energy charts using Chart.js
+                if (this.rewardChart) this.rewardChart.destroy();
+                if (this.energyChart) this.energyChart.destroy();
 
-                    this.update();
-                    this.draw();
-                    this.updateChart();
-                }, 100);
+                this.rewardChart = new Chart(rewardChartCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: this.agents.map(agent => ({
+                            label: `Agent ${agent.id} Reward`,
+                            data: [],
+                            borderColor: `hsl(${agent.id * 30}, 100%, 50%)`,
+                            fill: false
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: { title: { display: true, text: 'Steps' } },
+                            y: { title: { display: true, text: 'Reward' } }
+                        }
+                    }
+                });
+
+                this.energyChart = new Chart(energyChartCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: this.agents.map(agent => ({
+                            label: `Agent ${agent.id} Energy`,
+                            data: [],
+                            borderColor: `hsl(${agent.id * 30 + 180}, 100%, 50%)`,
+                            fill: false
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: { title: { display: true, text: 'Steps' } },
+                            y: { title: { display: true, text: 'Energy' } }
+                        }
+                    }
+                });
             }
 
-            update() {
+            async step() {
+                this.totalSteps++;
                 for (let agent of this.agents) {
-                    agent.move();
+                    await agent.move();
+                    this.dataLog.push({
+                        step: this.totalSteps,
+                        agentId: agent.id,
+                        reward: agent.totalReward,
+                        energy: agent.energy
+                    });
+                }
+                this.updateCharts();
+                this.updateDisplay();
+                this.draw();
+            }
+
+            start() {
+                if (!this.isRunning) {
+                    this.isRunning = true;
+                    this.runLoop();
+                }
+            }
+
+            stop() {
+                this.isRunning = false;
+            }
+
+            reset() {
+                this.env.reset();
+                this.initializeAgents();
+                this.totalSteps = 0;
+                this.dataLog = [];
+                this.initializeCharts();
+                this.updateDisplay();
+                this.draw();
+                console.log('Simulation reset.');
+            }
+
+            async runLoop() {
+                while (this.isRunning) {
+                    const currentTime = performance.now();
+                    const deltaTime = currentTime - this.lastFrameTime;
+                    if (deltaTime >= this.frameInterval) {
+                        this.lastFrameTime = currentTime;
+                        await this.step();
+
+                        // Periodically perform selection and training
+                        if (this.totalSteps % 100 === 0) { // Adjust the interval as needed
+                            this.performSelectionAndTraining();
+                        }
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 10));  // Adding a small delay to prevent freezing
+                }
+            }
+
+            performSelectionAndTraining() {
+                // Sort agents based on totalReward in descending order
+                const sortedAgents = this.agents.sort((a, b) => b.totalReward - a.totalReward);
+                const selectedAgents = sortedAgents.slice(0, SELECTION_COUNT);
+
+                // Initialize a new generation array
+                const newGeneration = [];
+
+                // Keep the top agents unchanged (elitism)
+                for (let i = 0; i < SELECTION_COUNT; i++) {
+                    newGeneration.push(selectedAgents[i].clone());
                 }
 
-                // Remove dead agents from the list
-                this.agents = this.agents.filter(agent => agent.alive);
+                // Generate offspring through crossover
+                while (newGeneration.length < POPULATION_SIZE) {
+                    // Randomly select two parents from the selected agents
+                    const parentA = selectedAgents[Math.floor(Math.random() * SELECTION_COUNT)];
+                    const parentB = selectedAgents[Math.floor(Math.random() * SELECTION_COUNT)];
+                    
+                    // Perform crossover to produce a child
+                    const child = HybridAgent.crossover(parentA, parentB, newGeneration.length + 1);
+                    newGeneration.push(child);
+                }
 
-                // Update average energy level
-                const totalEnergy = this.agents.reduce((sum, agent) => sum + agent.energy, 0);
-                const averageEnergy = (totalEnergy / this.agents.length).toFixed(2);
-                averageEnergyCounter.textContent = averageEnergy;
-                this.energyHistory.push(averageEnergy);
+                // Replace the old population with the new generation
+                this.agents = newGeneration;
 
-                // Regenerate resources and threats
-                this.env.regenerateResourcesAndThreats();
+                console.log('Selection and Training performed. New generation created with crossover and mutation.');
+            }
+
+            updateCharts() {
+                if (!this.rewardChart || !this.energyChart) return;
+
+                // Update reward chart
+                this.rewardChart.data.labels.push(this.totalSteps);
+                for (let i = 0; i < this.agents.length; i++) {
+                    this.rewardChart.data.datasets[i].data.push(this.agents[i].totalReward);
+                }
+                this.rewardChart.update();
+
+                // Update energy chart
+                this.energyChart.data.labels.push(this.totalSteps);
+                for (let i = 0; i < this.agents.length; i++) {
+                    this.energyChart.data.datasets[i].data.push(this.agents[i].energy);
+                }
+                this.energyChart.update();
+            }
+
+            updateDisplay() {
+                totalStepsDisplay.textContent = this.totalSteps;
+                let totalAccuracy = 0;
+                for (let agent of this.agents) {
+                    totalAccuracy += agent.totalReward;
+                }
+                predictionAccuracyDisplay.textContent = `${((totalAccuracy / (this.totalSteps * this.agents.length)) * 100).toFixed(2)}%`;
+                this.updateAgentInfoDisplay();
+            }
+
+            updateAgentInfoDisplay() {
+                agentInfoContainer.innerHTML = '';
+                for (let agent of this.agents) {
+                    const infoDiv = document.createElement('div');
+                    infoDiv.textContent = `Agent ${agent.id}: Reward = ${agent.totalReward.toFixed(2)}, Energy = ${agent.energy.toFixed(2)}`;
+                    agentInfoContainer.appendChild(infoDiv);
+                }
             }
 
             draw() {
                 worldCtx.clearRect(0, 0, worldCanvas.width, worldCanvas.height);
+                predictionCtx.clearRect(0, 0, predictionCanvas.width, predictionCanvas.height);
 
-                // Draw resources and threats
-                for (let y = 0; y < GRID_SIZE; y++) {
-                    for (let x = 0; x < GRID_SIZE; x++) {
-                        const cell = this.env.state[y][x];
-                        if (cell) {
-                            if (cell.type === 'resource') {
-                                worldCtx.fillStyle = cell.resourceType === 'food' ? 'green' : 'blue';
-                            } else if (cell.type === 'threat') {
-                                worldCtx.fillStyle = cell.threatType === 'predator' ? 'red' : 'orange';
-                            }
-                            worldCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                // Draw environment
+                for (let y = 0; y < this.env.gridSize; y++) {
+                    for (let x = 0; x < this.env.gridSize; x++) {
+                        const value = this.env.state[y][x];
+                        if (value === null) {
+                            worldCtx.fillStyle = 'black'; // Obstacles are black
+                        } else if (value > 0) {
+                            worldCtx.fillStyle = 'green';
+                        } else {
+                            worldCtx.fillStyle = 'red';
                         }
+                        worldCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
                     }
                 }
 
                 // Draw agents
                 for (let agent of this.agents) {
-                    if (agent.alive) {
-                        // Agent color based on energy level
-                        const energyRatio = agent.energy / MAX_ENERGY;
-                        const colorIntensity = Math.floor(energyRatio * 255);
-                        worldCtx.fillStyle = `rgb(${255 - colorIntensity}, 0, ${colorIntensity})`;
-                        worldCtx.fillRect(agent.position[0] * CELL_SIZE, agent.position[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    worldCtx.fillStyle = 'blue';
+                    worldCtx.beginPath();
+                    worldCtx.arc(agent.position[0], agent.position[1], CELL_SIZE / 2, 0, 2 * Math.PI);
+                    worldCtx.fill();
+                }
+
+                // Draw prediction (for demonstration purposes, simply mirroring world state)
+                for (let y = 0; y < this.env.gridSize; y++) {
+                    for (let x = 0; x < this.env.gridSize; x++) {
+                        const value = this.env.state[y][x];
+                        if (value === null) {
+                            predictionCtx.fillStyle = 'black';
+                        } else if (value > 0) {
+                            predictionCtx.fillStyle = 'green';
+                        } else {
+                            predictionCtx.fillStyle = 'red';
+                        }
+                        predictionCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+
+                // Draw agent paths
+                for (let agent of this.agents) {
+                    predictionCtx.strokeStyle = 'blue';
+                    predictionCtx.beginPath();
+                    for (let i = 0; i < agent.path.length; i++) {
+                        const [x, y] = agent.path[i];
+                        if (i === 0) {
+                            predictionCtx.moveTo(x, y);
+                        } else {
+                            predictionCtx.lineTo(x, y);
+                        }
+                    }
+                    predictionCtx.stroke();
+                }
+            }
+
+            // Save simulation state to localStorage
+            saveSimulation() {
+                const simulationState = {
+                    env: {
+                        gridSize: this.env.gridSize,
+                        state: this.env.state,
+                        obstacles: this.env.obstacles
+                    },
+                    agents: this.agents.map(agent => ({
+                        qTable: agent.qTable,
+                        modelWeights: agent.model ? agent.model.getWeights().map(w => w.arraySync()) : null,
+                        position: agent.position,
+                        totalReward: agent.totalReward,
+                        totalSteps: agent.totalSteps,
+                        energy: agent.energy,
+                        path: agent.path
+                    })),
+                    totalSteps: this.totalSteps
+                };
+                localStorage.setItem('diamondSimulationState', JSON.stringify(simulationState));
+                console.log('Simulation state saved.');
+            }
+
+            // Load simulation state from localStorage
+            loadSimulation() {
+                const savedState = localStorage.getItem('diamondSimulationState');
+                if (savedState) {
+                    try {
+                        const simulationState = JSON.parse(savedState);
+                        // Load environment
+                        this.env.gridSize = simulationState.env.gridSize;
+                        this.env.state = simulationState.env.state;
+                        this.env.obstacles = simulationState.env.obstacles;
+
+                        // Load agents
+                        this.agents = simulationState.agents.map((agentData, index) => {
+                            const modelWeights = agentData.modelWeights ? agentData.modelWeights.map(w => tf.tensor(w)) : null;
+                            const agent = new HybridAgent(this.env, index + 1, agentData.qTable, modelWeights);
+                            agent.position = agentData.position;
+                            agent.totalReward = agentData.totalReward;
+                            agent.totalSteps = agentData.totalSteps;
+                            agent.energy = agentData.energy;
+                            agent.path = agentData.path;
+                            return agent;
+                        });
+
+                        // Load total steps
+                        this.totalSteps = simulationState.totalSteps;
+
+                        this.initializeCharts();
+                        this.updateDisplay();
+                        this.draw();
+
+                        console.log('Simulation state loaded from storage.');
+                    } catch (error) {
+                        console.error('Error loading simulation state:', error);
                     }
                 }
             }
 
-            updateChart() {
-                energyChart.data.labels.push(this.totalSteps);
-                energyChart.data.datasets[0].data.push(parseFloat(averageEnergyCounter.textContent));
-                if (energyChart.data.labels.length > 100) {
-                    energyChart.data.labels.shift();
-                    energyChart.data.datasets[0].data.shift();
-                }
-                energyChart.update();
+            // Add Save and Load buttons to the controls
+            addPersistenceControls() {
+                // Save and Load buttons are already in HTML; ensure they have event listeners
+                saveButton.addEventListener('click', () => {
+                    this.saveSimulation();
+                });
+
+                loadButton.addEventListener('click', () => {
+                    this.loadSimulation();
+                });
             }
         }
 
-        // Initialize the simulation
-        const simulation = new Simulation();
+        let simulation = new Simulation();
 
-        // Update agents' parameters when sliders are adjusted
-        epsilonSlider.addEventListener('input', () => {
-            explorationRateCounter.textContent = parseFloat(epsilonSlider.value).toFixed(2);
+        // Event listeners for controls
+        resetButton.addEventListener('click', () => {
+            simulation.reset();
+            runButton.textContent = 'Run';
+        });
+        stepButton.addEventListener('click', () => simulation.step());
+        runButton.addEventListener('click', () => {
+            if (simulation.isRunning) {
+                simulation.stop();
+                runButton.textContent = 'Run';
+            } else {
+                simulation.start();
+                runButton.textContent = 'Stop';
+            }
         });
 
-        alphaSlider.addEventListener('input', () => {
-            learningRateCounter.textContent = parseFloat(alphaSlider.value).toFixed(2);
-        });
-
-        gammaSlider.addEventListener('input', () => {
-            gammaCounter.textContent = parseFloat(gammaSlider.value).toFixed(2);
+        numAgentsInput.addEventListener('change', () => {
+            // Update POPULATION_SIZE based on user input
+            const newSize = parseInt(numAgentsInput.value);
+            if (newSize > 0 && newSize <= 20) { // Set an upper limit to prevent performance issues
+                POPULATION_SIZE = newSize;
+                SELECTION_COUNT = Math.floor(POPULATION_SIZE / 2); // For example, select top 50%
+                simulation.initializeAgents();
+                simulation.initializeCharts();
+            } else {
+                alert('Please enter a valid number of agents (1-20).');
+                numAgentsInput.value = POPULATION_SIZE;
+            }
         });
     </script>
 </body>
